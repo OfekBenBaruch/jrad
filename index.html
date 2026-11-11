@@ -175,7 +175,7 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 .bar span{font-variant-numeric:tabular-nums;text-align:end}
 .src{min-width:0}
 .src td,.src th{padding:6px 8px;font-size:.9rem}
-#modal{position:fixed;inset:0;background:rgba(6,16,32,.5);display:flex;align-items:flex-start;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) 12px 12px;overflow-y:auto;z-index:20}
+#modal{z-index:300;position:fixed;inset:0;background:rgba(6,16,32,.5);display:flex;align-items:flex-start;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) 12px 12px;overflow-y:auto}
 #modal[hidden]{display:none}
 .sheet{background:var(--card2);color:var(--fg);width:100%;max-width:700px;padding:22px;display:flex;flex-direction:column;gap:14px;margin-block:auto;border-radius:22px;border:1px solid var(--line)}
 .sheet h2{margin:0;font-size:1.2rem}
@@ -325,6 +325,53 @@ details.adv>summary:hover{color:var(--accent)}
   .subtabs{width:100%}.subtabs button{flex:1;padding:8px 6px}
   .card.mapfull{z-index:70}
 }
+
+/* map: stage holds the map and its floating card */
+.mapstage{position:relative}
+.mapcard.mfloat{position:absolute;z-index:8;margin:0;max-height:calc(100% - 20px);overflow:auto;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);border-radius:14px;padding:12px 14px 12px}
+.mapcard.mfloat .rkjobs li{padding:6px 9px}
+.mapcard.mfloat select.cstat{padding:6px 8px;font-size:.82rem}
+@media (max-width:640px){
+  .mapcard.mfloat{left:8px!important;right:8px!important;bottom:8px;top:auto!important;width:auto!important;max-height:55%}
+}
+.card.mapfull .mapstage{flex:1 1 auto;min-height:0;display:flex}
+.card.mapfull .mapstage .mapbox{flex:1 1 auto}
+/* ranking */
+.rkhead{display:flex;flex-direction:column;gap:12px}
+button.rkb{text-align:start;cursor:pointer;font:inherit;color:var(--fg);border-inline-start:4px solid var(--bc)!important;transition:transform .12s ease,background .12s ease}
+button.rkb:hover{transform:translateY(-1px)}
+button.rkb.on{background:var(--soft);outline:2px solid var(--bc);outline-offset:-2px}
+.rktools{display:flex;gap:8px;flex-wrap:wrap}
+.rktools input{flex:1 1 200px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit}
+details.rkband>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;flex-wrap:wrap;user-select:none}
+details.rkband>summary::-webkit-details-marker{display:none}
+details.rkband>summary::after{content:"";width:8px;height:8px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);margin-inline-start:auto;transition:transform .15s ease}
+details.rkband[open]>summary::after{transform:rotate(-135deg)}
+details.rkband[open]>summary{margin-bottom:12px}
+.rkbt{font-weight:700;font-size:1rem}
+.rkbn{background:var(--greybg);border-radius:99px;padding:1px 9px;font-size:.78rem;font-weight:700;color:var(--muted)}
+.rkbs{flex-basis:100%;font-size:.78rem;color:var(--muted)}
+@media (min-width:641px){.rkbs{flex-basis:auto}}
+/* brief: swipeable rows */
+.brief ol.bl li{padding:0!important;overflow:hidden;cursor:default;touch-action:pan-y}
+.brief ol.bl li::before{z-index:2}
+.blin{position:relative;z-index:1;background:var(--card2);display:flex;align-items:center;gap:8px;padding:9px 40px 9px 10px;transition:transform .18s ease}
+.brief li.sw .blin{transition:none}
+.bltx{flex:1;min-width:0;cursor:pointer}
+.blbtn{display:flex;gap:4px;opacity:0;transition:opacity .15s ease}
+.brief li:hover .blbtn{opacity:1}
+.blbtn button{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:8px;width:30px;height:30px;font-size:.9rem;cursor:pointer}
+.blbtn button:first-child:hover{color:var(--good);border-color:var(--good)}
+.blbtn button:last-child:hover{color:var(--bad);border-color:var(--bad)}
+.bla{position:absolute;inset:0;display:flex;align-items:center;padding:0 16px;font-weight:700;font-size:.85rem;opacity:0}
+.bla.r{background:var(--goodbg);color:var(--good);justify-content:flex-end}
+.bla.l{background:var(--badbg);color:var(--bad);justify-content:flex-start}
+.brief li.sw[data-dir=r] .bla.r,.brief li.sw[data-dir=l] .bla.l{opacity:1}
+.brief li.arm .bla{font-size:.95rem}
+.brief li.gone{transition:opacity .18s ease;opacity:.4}
+.blhint{display:none;font-size:.74rem;color:var(--muted);margin:8px 2px 0}
+@media (hover:none){.blbtn{display:none}.blhint{display:block}}
 </style>
 <div id="app" dir="rtl" lang="he">
   <div id="gate" class="gate" hidden>
@@ -521,6 +568,21 @@ function areaChart(){
 }
 
 /* ---------- the morning brief, computed from the database ---------- */
+const BACT={due:{r:'בוצע',l:'מחר'},new:{r:'הגשתי',l:'לא רלוונטי'}};
+let bHide={};try{const o=JSON.parse(localStorage.getItem('jr-bhide')||'{}');if(o.d===today())bHide=o.m||{}}catch(e){}
+function bHideSet(key){bHide[key]=1;try{localStorage.setItem('jr-bhide',JSON.stringify({d:today(),m:bHide}))}catch(e){}}
+function briefAct(spec,dir){
+  const [kind,id,k]=spec.split(':'), t=today(), tm=new Date(Date.now()+864e5).toLocaleDateString('en-CA');
+  if(kind==='c'){coPatch(id,k==='due'&&dir==='l'?{nextDate:tm}:{nextDate:'',nextStep:'',updatedAt:new Date().toISOString()});return}
+  const j=jobs.find(x=>x.id===id);if(!j)return;
+  let patch;
+  if(k==='due')patch=dir==='r'?{nextDate:'',nextStep:''}:{nextDate:tm};
+  else if(dir==='r')patch={stage:'applied',appliedAt:t,reached:Math.max(reached(j),IDX.applied),history:(j.history||[]).concat([{d:t,s:'applied'}])};
+  else patch={stage:'closed',history:(j.history||[]).concat([{d:t,s:'closed'}])};
+  patch.updatedAt=new Date().toISOString();
+  Object.assign(j,patch);render();
+  if(db)queue(()=>db.doc('jobs/'+id).update(patch)).then(()=>toast(dir==='r'?(k==='due'?'סומן כבוצע':'נרשם כהוגש'):(k==='due'?'נדחה למחר':'נסגר')));
+}
 function briefHtml(){
   const t=today(), items=[];
   const dueJ=jobs.filter(j=>j.nextDate&&j.nextDate<=t&&j.stage!=='closed');
@@ -532,7 +594,7 @@ function briefHtml(){
   jobs.filter(j=>j.stage==='found').sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,3)
     .forEach(j=>items.push({k:'new',id:j.id,kind:'j',t:'להגיש — '+(j.title||''),
       s:(j.company||'')+(j.location?' · '+j.location:'')+(j.score?' · ציון '+j.score:'')}));
-  const list=items.slice(0,5);
+  const list=items.filter(i=>!bHide[i.kind+':'+i.id]).slice(0,5);
   const applied=jobs.filter(j=>reached(j)>=IDX.applied).length;
   const screens=jobs.filter(j=>reached(j)>=IDX.screen).length;
   const la=jobs.map(appDate).filter(Boolean).sort().pop();
@@ -542,8 +604,12 @@ function briefHtml(){
   if(applied>=5&&screens===0)note.push(applied+' הגשות, עדיין אפס שיחות מיון. הערוץ שמחזיר תשובות אצלך הוא פנייה ישירה לאדם, לא טופס.');
   else if(screens)note.push(screens+' הגיעו לשיחת מיון מתוך '+applied+' הגשות.');
   return '<div class="card brief"><h2>מה לעשות היום</h2>'
-   +(list.length?'<ol class="bl">'+list.map(i=>'<li class="'+i.k+'" '
-      +(i.kind==='j'?'data-id="':'data-co="')+esc(i.id)+'"><b>'+esc(i.t)+'</b><em>'+esc(i.s)+'</em></li>').join('')+'</ol>'
+   +(list.length?'<ol class="bl">'+list.map(i=>{const A=BACT[i.k];
+      return '<li class="'+i.k+'" data-b="'+i.kind+':'+esc(i.id)+':'+i.k+'">'
+      +'<span class="bla r">'+A.r+'</span><span class="bla l">'+A.l+'</span>'
+      +'<div class="blin"><div class="bltx"'+(i.kind==='j'?' data-id="':' data-co="')+esc(i.id)+'"><b>'+esc(i.t)+'</b><em>'+esc(i.s)+'</em></div>'
+      +'<div class="blbtn"><button type="button" data-bact="r" title="'+A.r+'">✓</button><button type="button" data-bact="l" title="'+A.l+'">'+(i.k==='due'?'↷':'✕')+'</button></div></div></li>'}).join('')+'</ol>'
+      +'<p class="blhint">בנייד: החלקה ימינה — '+'בוצע / הגשתי, החלקה שמאלה — מחר / לא רלוונטי.</p>'
     :'<p class="sub2">אין משרה שממתינה לפעולה ואין מעקב שעבר תאריך. זה הרגע לחפש חדשות או לפנות לאדם.</p>')
    +(note.length?'<p class="bnote">'+esc(note.join(' '))+'</p>':'')+'</div>';
 }
@@ -621,7 +687,8 @@ function render(){
   if(!loaded){el.innerHTML='<div class="empty">טוען…</div>';return}
   if(!db){el.innerHTML='<div class="empty">המעקב לא זמין בתצוגה הזאת. פתח את הדף מחדש מתוך claude.ai.</div>';return}
   if(tab==='rank'){el.innerHTML=viewRank();animIn(el);_restore();return}
-  if(tab==='map'){el.innerHTML=viewMap();animIn(el);initMap();_restore();return}
+  if(tab==='map'){if(_mapRefresh&&$('mapbox')&&el.contains($('mapbox'))){_mapRefresh();return}
+    _mapRefresh=null;el.innerHTML=viewMap();animIn(el);initMap();_restore();return}
   if(tab==='co'){el.innerHTML=viewCo();animIn(el);_restore();return}
   if(!jobs.length){el.innerHTML='<div class="empty"><b>עוד אין משרות במעקב.</b><br>Claude מוסיף לכאן משרות מהרדאר, ואפשר גם להוסיף ידנית בכפתור "+ משרה".</div>';return}
   el.innerHTML=({focus:viewFocus,flow:viewFlow,all:viewAll,co:viewCo,rank:viewRank,map:viewMap,stats:viewStats}[tab])();
@@ -725,7 +792,10 @@ const MORG=[31.668,34.574];
 const mcoord=c=>{const k=(c.location||'').trim();if(!k)return null;if(MCOORD[k])return MCOORD[k];
   for(const x in MCOORD)if(k.indexOf(x)>=0)return MCOORD[x];return null};
 const MBANDCOL={live:'--accent',go:'--good',chk:'--warn',watch:'--grey',no:'--bad',unk:'--c3'};
-let _ml=null,_ov=null,_mapApi=null;
+let _ml=null,_ov=null,_mapApi=null,_mapRefresh=null;
+window.__map=()=>({ml:_ml,ov:_ov});
+function mapStyleNow(){try{const v=localStorage.getItem('jr-mapstyle');if(v)return v}catch(e){}return curTheme()==='dark'?'dark':'light'}
+function setMapStyle(v){try{localStorage.setItem('jr-mapstyle',v)}catch(e){}}
 function loadML(){if(window.maplibregl)return Promise.resolve();
   if(!document.getElementById('mlcss')){const l=document.createElement('link');l.id='mlcss';l.rel='stylesheet';l.href='vendor/maplibre-gl.css';document.head.appendChild(l)}
   return new Promise((res,rej)=>{const t=document.createElement('script');t.src='vendor/maplibre-gl.js';
@@ -753,26 +823,29 @@ function ringPoly(km){const p=[];for(let i=0;i<=72;i++){const a=i/72*2*Math.PI;
   p.push([MORG[1]+km/(111.32*Math.cos(MORG[0]*Math.PI/180))*Math.sin(a), MORG[0]+km/111.32*Math.cos(a)])}return p}
 function viewMap(){
   return '<div class="card" id="mapcardwrap"><h2 class="mhide">מפה</h2>'
-   +'<p class="sub2 mhide">אותם צבעים של לשונית הסינון, על הקרקע. גובה העמוד הוא מספר המשרות הפתוחות. גרור כדי להזיז, שתי אצבעות או Ctrl+גרירה כדי לסובב ולהטות. הטבעות הן מרחק אווירי מאשקלון; הצבע נקבע לפי מרחק נסיעה.</p>'
+   +'<p class="sub2 mhide">אותם צבעים של לשונית הדירוג. נקודה גדולה יותר = יותר משרות פתוחות. לחיצה על נקודה פותחת כרטיס. הטבעות הן מרחק אווירי מאשקלון; הצבע נקבע לפי מרחק נסיעה.</p>'
    +'<div class="mapbar"><button type="button" class="ghost" id="mapfull">מסך מלא</button>'
-   +'<button type="button" class="ghost" id="mapreset">איפוס תצוגה</button></div>'
-   +'<div id="mapbox" class="mapbox"><div class="empty" id="mapmsg">טוען את המפה…</div></div>'
+   +'<button type="button" class="ghost" id="mapreset">איפוס</button>'
+   +'<button type="button" class="ghost" id="mapstyle">'+(mapStyleNow()==='dark'?'רקע בהיר':'רקע כהה')+'</button></div>'
+   +'<div class="mapstage"><div id="mapbox" class="mapbox"><div class="empty" id="mapmsg">טוען את המפה…</div></div>'
+   +'<div id="mapcard" class="mapcard mfloat" hidden></div></div>'
    +'<div class="maplg">'+Object.keys(MBANDCOL).map(k=>{const b=RBANDS.find(x=>x.k===k);
        return '<span><i class="rkdot" style="background:var('+MBANDCOL[k]+')"></i>'+(b?b.t:k)+'</span>'}).join('')
-   +'<span style="color:var(--muted)">חברה בלי עיר לא מופיעה במפה</span></div>'
-   +'<div id="mapcard" class="mapcard" hidden></div></div>';
+   +'<span style="color:var(--muted)">חברה בלי עיר לא מופיעה במפה</span></div></div>';
 }
 function initMap(){
   const host=$('mapbox');if(!host)return;
   loadDeck().then(()=>{
     const msg=$('mapmsg');if(msg)msg.remove();
-    const pts=[];
+    let pts=[];
+    const mkPts=()=>{const out=[];
     cos.forEach(c=>{const p=mcoord(c);if(!p)return;const s=rscore(c);
       let h=0;for(let i=0;i<(c.id||'').length;i++)h=(h*31+c.id.charCodeAt(i))>>>0;
       const ang=(h%360)*Math.PI/180,r=(3+(h>>9)%9)/111.32;
-      pts.push({id:c.id,name:c.name,co:c,s:s,
+      out.push({id:c.id,name:c.name,co:c,s:s,
         pos:[p[1]+r*Math.sin(ang)/Math.cos(p[0]*Math.PI/180),p[0]+r*Math.cos(ang)],
-        h:3+Math.min(s.js.length,6)*3, col:rgbOf(MBANDCOL[s.band]||'--grey')})});
+        h:3+Math.min(s.js.length,6)*3, col:rgbOf(MBANDCOL[s.band]||'--grey')})});return out};
+    pts=mkPts();
     const land=[],lake=[];
     (GEO.israel||[]).concat(GEO.palestine||[]).forEach(poly=>land.push({polygon:poly}));
     (GEO.lakes||[]).forEach(poly=>lake.push({polygon:poly}));
@@ -787,13 +860,15 @@ function initMap(){
         getLineColor:rgbOf('--muted').concat(90),lineWidthMinPixels:1,getLineWidth:1,extruded:false}),
       new deck.ScatterplotLayer({id:'orig',data:[{p:[MORG[1],MORG[0]]}],getPosition:d=>d.p,
         getRadius:4,radiusUnits:'pixels',getFillColor:rgbOf('--accent').concat(255)}),
-      new deck.ColumnLayer({id:'co',data:pts,diskResolution:14,radius:2200,extruded:true,pickable:true,
-        elevationScale:4200,getPosition:d=>d.pos,getElevation:d=>d.h,
-        getFillColor:d=>d.col.concat(_msel&&_msel!==d.id?110:235),
-        updateTriggers:{getFillColor:[_msel]}})]);
-    if(!_vs)_vs={longitude:34.95,latitude:31.85,zoom:7.15,pitch:50,bearing:0,minZoom:5.5,maxZoom:11};
+      new deck.ScatterplotLayer({id:'co',data:pts,pickable:true,radiusUnits:'pixels',
+        getPosition:d=>d.pos,getRadius:d=>(d.id===_msel?11:7)+Math.min(d.s.js.length,5)*2,
+        stroked:true,lineWidthUnits:'pixels',getLineWidth:d=>d.id===_msel?3:1.5,
+        getLineColor:[255,255,255,230],
+        getFillColor:d=>d.col.concat(_msel&&_msel!==d.id?120:240),
+        radiusMinPixels:5,updateTriggers:{getFillColor:[_msel],getRadius:[_msel],getLineWidth:[_msel]}})]);
+    if(!_vs)_vs={longitude:34.95,latitude:31.85,zoom:7.3,pitch:0,bearing:0,minZoom:5.5,maxZoom:13};
     if(_mfocus){const f=pts.find(x=>x.id===_mfocus);
-      if(f){_vs=Object.assign({},_vs,{longitude:f.pos[0],latitude:f.pos[1]-0.25,zoom:9.2,pitch:52});_msel=f.id}
+      if(f){_vs=Object.assign({},_vs,{longitude:f.pos[0],latitude:f.pos[1],zoom:10,pitch:0});_msel=f.id}
       _mfocus=null}
     if(_deck){try{_deck.finalize()}catch(e){}_deck=null}
     if(_ml){try{_ml.remove()}catch(e){}_ml=null;_ov=null}
@@ -801,21 +876,21 @@ function initMap(){
         +(object.s.js.length?' · '+object.s.js.length+' משרות':''),
         style:{background:'var(--card2)',color:'var(--fg)',border:'1px solid var(--line)',
                borderRadius:'8px',fontSize:'12px',padding:'6px 9px'}}:null;
-    const HOME={longitude:34.95,latitude:31.85,zoom:7.15,pitch:50,bearing:0};
+    const HOME={longitude:34.95,latitude:31.85,zoom:7.3,pitch:0,bearing:0};
     // flat fallback: our own borders, no network needed
     const flat=()=>{if(!host.isConnected)return;
       _deck=new deck.Deck({parent:host,viewState:_vs,controller:true,layers:L(false),
         style:{position:'absolute',inset:'0'},
         onViewStateChange:({viewState})=>{_vs=viewState;_deck.setProps({viewState:_vs})},
         getTooltip:tip,
-        onClick:({object})=>{_msel=object?object.id:null;mapCard(object);_deck.setProps({layers:L(false)})}});
+        onClick:(info)=>{const o=info.object;_msel=o?o.id:null;mapCard(o,info.x,info.y);_deck.setProps({layers:L(false)})}});
       _mapApi={resize:()=>{try{_deck.redraw(true)}catch(e){}},
         home:()=>{_vs=Object.assign({},HOME,{minZoom:5.5,maxZoom:11});_msel=null;mapCard(null);_deck.setProps({viewState:_vs,layers:L(false)})}}};
     // real street map from OpenFreeMap, with our columns drawn on top
     const real=()=>loadML().then(()=>new Promise((res,rej)=>{
       if(!host.isConnected)return rej(new Error('gone'));
-      const dark=curTheme()==='dark';
-      const styles=dark?['dark','positron']:['positron'];
+      const dark=mapStyleNow()==='dark';
+      const styles=dark?['dark','positron']:['positron','bright'];
       let i=0,done=false;
       const m=new maplibregl.Map({container:host,style:'https://tiles.openfreemap.org/styles/'+styles[0],
         center:[_vs.longitude,_vs.latitude],zoom:_vs.zoom,pitch:_vs.pitch,bearing:_vs.bearing,
@@ -823,9 +898,12 @@ function initMap(){
       const to=setTimeout(()=>{if(!done){done=true;try{m.remove()}catch(e){}rej(new Error('timeout'))}},9000);
       m.on('error',()=>{if(done)return;i++;if(i<styles.length)m.setStyle('https://tiles.openfreemap.org/styles/'+styles[i])});
       m.on('load',()=>{if(done)return;done=true;clearTimeout(to);
-        const ov=new deck.MapboxOverlay({interleaved:false,layers:L(true),getTooltip:tip,
-          onClick:({object})=>{_msel=object?object.id:null;mapCard(object);ov.setProps({layers:L(true)})}});
+        const ov=new deck.MapboxOverlay({interleaved:false,layers:L(true)});
         m.addControl(ov);
+        // picking is driven from the map's own events; it is the path that works on every device
+        const pick=pt=>{try{const r=ov.pickObject({x:pt.x,y:pt.y,radius:8});return r&&r.object}catch(e){return null}};
+        m.on('click',e=>{const o=pick(e.point);_msel=o?o.id:null;mapCard(o,e.point.x,e.point.y);ov.setProps({layers:L(true)})});
+        m.on('mousemove',e=>{m.getCanvas().style.cursor=pick(e.point)?'pointer':''});
         m.on('moveend',()=>{const c=m.getCenter();_vs=Object.assign({},_vs,{longitude:c.lng,latitude:c.lat,zoom:m.getZoom(),pitch:m.getPitch(),bearing:m.getBearing()})});
         _ml=m;_ov=ov;
         _mapApi={resize:()=>{try{m.resize()}catch(e){}},
@@ -839,41 +917,85 @@ function initMap(){
       const on=card.classList.toggle('mapfull');document.body.classList.toggle('noscroll',on);
       fb.textContent=on?'יציאה':'מסך מלא';setTimeout(()=>{_mapApi&&_mapApi.resize()},80)};
     const rbn=$('mapreset');if(rbn)rbn.onclick=()=>{_mapApi&&_mapApi.home()};
+    _mapRefresh=()=>{pts=mkPts();const tgt=_ov||_deck;if(tgt)tgt.setProps({layers:L(!!_ov)});
+      if(_msel){const f=pts.find(x=>x.id===_msel);if(f)mapCard(f,null,null,true);else{_msel=null;mapCard(null)}}};
+    const sb=$('mapstyle');if(sb)sb.onclick=()=>{const nv=mapStyleNow()==='dark'?'light':'dark';setMapStyle(nv);
+      sb.textContent=nv==='dark'?'רקע בהיר':'רקע כהה';
+      if(_ml){_ml.setStyle('https://tiles.openfreemap.org/styles/'+(nv==='dark'?'dark':'positron'))}};
   }).catch(err=>{const m=$('mapmsg');if(m)m.innerHTML='<b>מנוע המפה לא נטען.</b><br>'
     +'<span class="sub2">'+esc((err&&err.message)||'')+' — שתי הספריות נחסמו. שאר הדאשבורד עובד כרגיל.</span>'});
 }
-function mapCard(o){
+let _mcPos=null;
+function mapCard(o,x,y,keep){
   const el=$('mapcard');if(!el)return;
-  if(!o){el.hidden=true;el.innerHTML='';return}
+  if(!o){el.hidden=true;el.innerHTML='';_mcPos=null;return}
+  if(x!=null&&y!=null)_mcPos={x,y};
   const c=o.co,s=o.s;
   el.hidden=false;
-  el.innerHTML='<button type="button" class="mapx" id="mapclose">×</button>'
+  el.innerHTML='<button type="button" class="mapx" id="mapclose" aria-label="סגירה">×</button>'
    +'<div class="rknm">'+esc(c.name)+'</div>'
-   +'<div class="sub2">'+esc(c.location||'')+(s.d==null?'':' · '+s.d+' ק״מ נסיעה')+(c.domain?' · '+esc(c.domain):'')+'</div>'
+   +'<div class="sub2">'+esc(c.location||'')+(s.d==null?'':' · '+s.d+' ק״מ')+(c.domain?' · '+esc(c.domain):'')+'</div>'
    +'<div class="rkwhy" style="margin-top:4px">'+esc(s.why.join(' · '))+'</div>'
    +(s.js.length?'<ul class="rkjobs" style="margin-top:8px">'+s.js.map(j=>'<li>'
       +(j.url?'<a href="'+esc(j.url)+'" target="_blank" rel="noopener">'+esc(j.title)+'</a>':'<b>'+esc(j.title)+'</b>')
       +'<em>'+esc(j.location||'')+(typeof j.score==='number'?' · ציון '+j.score:'')+'</em></li>').join('')+'</ul>'
       :'<div class="sub2" style="margin-top:8px">אין משרה פתוחה במאגר</div>')
-   +'<div class="rkedit" style="margin-top:8px"><button type="button" class="ghost" data-co="'+esc(c.id)+'">עריכה בכרטיס החברה</button></div>';
-  $('mapclose').onclick=()=>{_msel=null;mapCard(null);if(_deck)_deck.setProps({layers:[]});render()};
+   +'<div class="rkedit" style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap">'
+   +'<button type="button" class="ghost" data-co="'+esc(c.id)+'">עריכה</button>'
+   +'<select class="cstat sb-'+s.band+'" data-co="'+esc(c.id)+'" aria-label="סטטוס">'+CSTAT.map(v=>'<option'+(v===(c.status||'חדש')?' selected':'')+'>'+v+'</option>').join('')+'</select></div>';
+  // place it next to the point on wide screens; phones get a bottom sheet via CSS
+  const st=el.parentElement, W=st.clientWidth, H=st.clientHeight;
+  if(_mcPos&&W>640){const cw=Math.min(300,W-20);
+    let L=_mcPos.x+16, T=_mcPos.y-30;
+    if(L+cw>W-10)L=_mcPos.x-cw-16; if(L<10)L=10;
+    el.style.left=L+'px';el.style.right='auto';el.style.width=cw+'px';
+    requestAnimationFrame(()=>{const h=el.offsetHeight;let t=T;if(t+h>H-10)t=H-h-10;if(t<10)t=10;el.style.top=t+'px'})}
+  else{el.style.left='';el.style.right='';el.style.top='';el.style.width=''}
+  $('mapclose').onclick=()=>{_msel=null;mapCard(null);_mapRefresh&&_mapRefresh()};
 }
 
+let rkOnly='',rkQ='';
+function rkState(){try{return JSON.parse(localStorage.getItem('jr-rkopen')||'{}')}catch(e){return {}}}
+function rkIsOpen(k){const st=rkState();return k in st?st[k]:!(k==='no'||k==='unk')}
+function rkSet(k,v){const st=rkState();st[k]=v;try{localStorage.setItem('jr-rkopen',JSON.stringify(st))}catch(e){}}
+(function(){let sw=null;
+  document.addEventListener('pointerdown',e=>{const li=e.target.closest('.brief li[data-b]');if(!li||e.target.closest('button'))return;
+    sw={li,x:e.clientX,y:e.clientY,dx:0,on:false,id:e.pointerId}},{passive:true});
+  document.addEventListener('pointermove',e=>{if(!sw||e.pointerId!==sw.id)return;const dx=e.clientX-sw.x,dy=e.clientY-sw.y;
+    if(!sw.on){if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)*1.3){sw.on=true;sw.li.classList.add('sw')}else if(Math.abs(dy)>12){sw=null;return}else return}
+    sw.dx=dx;const inn=sw.li.querySelector('.blin');inn.style.transform='translateX('+dx+'px)';
+    sw.li.dataset.dir=dx>0?'r':'l';sw.li.classList.toggle('arm',Math.abs(dx)>sw.li.offsetWidth*0.3)},{passive:true});
+  const end=()=>{if(!sw)return;const {li,dx,on}=sw;sw=null;const inn=li.querySelector('.blin');
+    if(on&&Math.abs(dx)>li.offsetWidth*0.3){li.classList.add('gone');inn.style.transform='translateX('+(dx>0?'110%':'-110%')+')';
+      setTimeout(()=>briefAct(li.dataset.b,dx>0?'r':'l'),180);li.dataset.swiped='1';setTimeout(()=>{delete li.dataset.swiped},400)}
+    else{inn.style.transform='';li.classList.remove('sw','arm')}};
+  document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+  document.addEventListener('click',e=>{const b=e.target.closest('.brief [data-bact]');if(!b)return;e.stopPropagation();
+    const li=b.closest('li[data-b]');briefAct(li.dataset.b,b.dataset.bact)},true);
+  document.addEventListener('click',e=>{const li=e.target.closest('.brief li[data-b]');if(li&&li.dataset.swiped){e.stopPropagation();e.preventDefault()}},true);
+})();
+document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.classList&&d.classList.contains('rkband')&&!rkOnly&&!rkQ)rkSet(d.dataset.band,d.open)},true);
 function viewRank(){
   if(!cos.length)return '<div class="card"><div class="empty"><b>עוד אין חברות במאגר.</b></div></div>';
   const all=cos.map(c=>({c,s:rscore(c)}));
   const cnt={};RBANDS.forEach(b=>cnt[b.k]=0);all.forEach(r=>cnt[r.s.band]++);
-  let h='<div class="card"><h2>סינון חברות</h2>'
-   +'<p class="sub2">כל חברה מקבלת ציון לפי מרחק נסיעה מאשקלון, התאמת התחום ומשרות פתוחות. בכל שורה כתוב למה היא שם, כדי שלא תבדוק אותה פעמיים.</p>'
-   +'<div class="rkbands">'+RBANDS.map(b=>'<div class="rkb" style="border-inline-start:4px solid '+b.c+'"><b>'+cnt[b.k]+'</b><span>'+b.t+'</span></div>').join('')+'</div></div>';
+  const qq=rkQ.trim().toLowerCase();
+  const hit=r=>!qq||((r.c.name||'')+' '+(r.c.location||'')+' '+(r.c.domain||'')).toLowerCase().includes(qq);
+  let h='<div class="card rkhead">'
+   +'<div class="rkbands">'+RBANDS.map(b=>'<button type="button" class="rkb'+(rkOnly===b.k?' on':'')+'" data-rkband="'+b.k+'" aria-pressed="'+(rkOnly===b.k)+'" style="--bc:'+b.c+'"><b>'+cnt[b.k]+'</b><span>'+b.t+'</span></button>').join('')+'</div>'
+   +'<div class="rktools"><input type="search" id="rkq" placeholder="חיפוש חברה, עיר או תחום" value="'+esc(rkQ)+'">'
+   +(rkOnly?'<button type="button" class="ghost" data-rkband="'+rkOnly+'">הצג הכל</button>':'')
+   +'<button type="button" class="ghost" id="rkall">פתח הכל</button><button type="button" class="ghost" id="rknone">סגור הכל</button></div></div>';
   RBANDS.forEach(b=>{
-    const rows=all.filter(r=>r.s.band===b.k)
+    if(rkOnly&&rkOnly!==b.k)return;
+    const rows=all.filter(r=>r.s.band===b.k&&hit(r))
       .sort((x,y)=>(y.s.n==null?-1:y.s.n)-(x.s.n==null?-1:x.s.n)||(x.c.name||'').localeCompare(y.c.name||'','he'));
     if(!rows.length)return;
-    h+='<div class="card"><h2 style="display:flex;align-items:center;gap:8px"><i class="rkdot" style="background:'+b.c+'"></i>'+b.t+' · '+rows.length+'</h2>'
-      +'<p class="sub2" style="margin-top:-4px">'+b.sub+'</p><div class="rklist">';
+    const open=rkOnly===b.k||!!qq||rkIsOpen(b.k);
+    h+='<details class="card rkband" data-band="'+b.k+'"'+(open?' open':'')+'><summary><i class="rkdot" style="background:'+b.c+'"></i>'
+      +'<span class="rkbt">'+b.t+'</span><span class="rkbn">'+rows.length+'</span><span class="rkbs">'+b.sub+'</span></summary><div class="rklist">';
     rows.forEach(r=>{h+=rkRow(r,b.c)});
-    h+='</div></div>';
+    h+='</div></details>';
   });
   return h;
 }
@@ -1029,6 +1151,8 @@ document.addEventListener('click',e=>{
     if(t==='near')cNear=!cNear; else if(t==='tier')cTier=(cTier===v?'':v); else if(t==='cat')cCat=(cCat===v?'':v); else if(t==='stat')cStat=(cStat===v?'':v);
     render();return}
   if(e.target.closest('[data-x]')){closeModal();return}
+  const rbb=e.target.closest('[data-rkband]');if(rbb){rkOnly=rkOnly===rbb.dataset.rkband?'':rbb.dataset.rkband;render();return}
+  if(e.target.id==='rkall'||e.target.id==='rknone'){const v=e.target.id==='rkall';RBANDS.forEach(b=>rkSet(b.k,v));render();return}
   const mg=e.target.closest('button[data-map]');if(mg){focusOnMap(mg.dataset.map);return}
   const rb=e.target.closest('button[data-co]');if(rb&&!$('modal').contains(rb)){openCo(rb.dataset.co);return}
   const cr=e.target.closest('tr[data-co]');if(cr&&!$('modal').contains(cr)){openCo(cr.dataset.co);return}
@@ -1047,7 +1171,7 @@ document.addEventListener('click',e=>{
   const fl=e.target.closest('[data-flow]');if(fl){flowStage=fl.dataset.flow;flowLimit=10;render();return}
   if(e.target.closest('#more')){flowLimit+=15;render();return}
   const so=e.target.closest('[data-sort]');if(so){const k=so.dataset.sort;sort=sort.k===k?{k:k,d:-sort.d}:{k:k,d:1};render();return}
-  const bc=e.target.closest('li[data-co]');if(bc&&!$('modal').contains(bc)){openCo(bc.dataset.co);return}
+  const bc=e.target.closest('.bltx[data-co]');if(bc&&!$('modal').contains(bc)){openCo(bc.dataset.co);return}
   const it=e.target.closest('[data-id]');if(it&&!$('modal').contains(it)){openModal(it.dataset.id)}
   if(e.target===$('modal'))closeModal();
 });
@@ -1061,7 +1185,8 @@ document.addEventListener('keydown',e=>{
   }
 });
 document.addEventListener('input',e=>{if(e.target.id==='q'){q=e.target.value;render()}
-  else if(e.target.id==='cq'){cq=e.target.value.trim().toLowerCase();render()}});
+  else if(e.target.id==='cq'){cq=e.target.value.trim().toLowerCase();render()}
+  else if(e.target.id==='rkq'){rkQ=e.target.value;render()}});
 document.addEventListener('change',e=>{
   const id=e.target.id;
   if(id==='csort'){cSort=e.target.value;render();return}
@@ -1089,7 +1214,7 @@ render();
   db=d;
   if(!db){loaded=true;render();return}
   try{db.collection('companies').onSnapshot(s=>{cos=s.docs.map(x=>{const o=Object.assign({id:x.id},x.data());
-    if(coPend[x.id])Object.assign(o,coPend[x.id]);return o});if(tab==='co'||tab==='rank'||(tab==='map'&&!_ml))render()},()=>{})}catch(e){}
+    if(coPend[x.id])Object.assign(o,coPend[x.id]);return o});if(tab==='co'||tab==='rank'||tab==='map')render()},()=>{})}catch(e){}
   db.collection('jobs').onSnapshot(s=>{jobs=s.docs.map(x=>Object.assign({id:x.id},x.data()));loaded=true;render()},()=>{loaded=true;db=null;render()});
   try{db.collection('meta').onSnapshot(s=>{const d=s.docs.find(x=>x.id==='radar');meta=d?d.data():{};renderScan()},()=>{})}catch(e){}
 }).catch(()=>{loaded=true;render()});
