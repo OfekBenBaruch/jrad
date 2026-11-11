@@ -376,6 +376,14 @@ details.rkband[open]>summary{margin-bottom:12px}
 .mstyle{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);font-weight:600}
 .mstyle select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card2);color:var(--fg);font:inherit;font-size:.82rem}
 .dupwarn{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:9px 12px;font-size:.84rem;line-height:1.45}
+
+.rkst{padding:3px 6px;font-size:.76rem;border-radius:7px;margin-inline-start:2px}
+details.statsbox>summary{cursor:pointer;list-style:none;font-weight:700;display:flex;align-items:center;gap:8px}
+details.statsbox>summary::-webkit-details-marker{display:none}
+details.statsbox>summary::after{content:"";width:8px;height:8px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);margin-inline-start:auto;transition:transform .15s}
+details.statsbox[open]>summary::after{transform:rotate(-135deg)}
+details.statsbox[open]>summary{margin-bottom:12px}
+details.statsbox .card{box-shadow:none;border:0;padding:0;margin:0 0 14px;background:transparent}
 </style>
 <div id="app" dir="rtl" lang="he">
   <div id="gate" class="gate" hidden>
@@ -404,7 +412,6 @@ details.rkband[open]>summary{margin-bottom:12px}
     <button type="button" role="tab" id="grp-focus" data-grp="focus" aria-selected="true"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg><span>היום</span></button>
     <button type="button" role="tab" id="grp-jobs" data-grp="jobs" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 10h8M8 14h5"/></svg><span>משרות</span></button>
     <button type="button" role="tab" id="grp-cos" data-grp="cos" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V9l5-4v15M9 20V11l6-3v12M15 20v-8l5 2v6M3 20h18"/></svg><span>חברות</span></button>
-    <button type="button" role="tab" id="grp-stats" data-grp="stats" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span>נתונים</span></button>
   </nav>
   <div class="subtabs" id="subtabs" hidden></div>
   <main id="view"></main>
@@ -528,10 +535,10 @@ function renderScan(){
   el.className='scan '+cls;
   el.innerHTML='<i class="dot"></i><span>'+esc(txt)+'</span><a href="'+ACTIONS_URL+'" target="_blank" rel="noopener">הרץ סריקה ב-GitHub ↗</a>';
 }
-const GROUPS=[{g:'focus',tabs:['focus']},{g:'jobs',tabs:['flow','all']},{g:'cos',tabs:['co','rank','map']},{g:'stats',tabs:['stats']}];
-const SUBLBL={flow:'לפי שלב',all:'כל המשרות',co:'טבלה',rank:'דירוג',map:'מפה'};
+const GROUPS=[{g:'focus',tabs:['focus']},{g:'jobs',tabs:['flow','all']},{g:'cos',tabs:['rank','map']}];
+const SUBLBL={flow:'לפי שלב',all:'רשימה',rank:'רשימה',map:'מפה'};
 const lastIn={};
-const grpOf=k=>GROUPS.find(x=>x.tabs.includes(k))||GROUPS[0];
+const grpOf=k=>GROUPS.find(x=>x.tabs.includes(k))||(k==='co'?GROUPS[2]:GROUPS[0]);
 function renderTabs(){
   const g=grpOf(tab);lastIn[g.g]=tab;
   GROUPS.forEach(x=>$('grp-'+x.g).setAttribute('aria-selected',String(x===g)));
@@ -618,10 +625,14 @@ function briefHtml(){
    +(note.length?'<p class="bnote">'+esc(note.join(' '))+'</p>':'')+'</div>';
 }
 
+function statsOpen(){try{return localStorage.getItem('jr-stats')==='1'}catch(e){return false}}
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('summary select'))e.preventDefault()},true);
+document.addEventListener('toggle',e=>{if(e.target.classList&&e.target.classList.contains('statsbox')){try{localStorage.setItem('jr-stats',e.target.open?'1':'0')}catch(x){}}},true);
 function viewFocus(){
   const t=today(),wk=new Date(Date.now()-6*864e5).toLocaleDateString('en-CA');
   const act=active().length,week=jobs.filter(j=>{const d=appDate(j);return d&&d>=wk}).length,iv=jobs.filter(j=>['screen','interview','offer'].includes(j.stage)).length;
   return briefHtml()+'<div class="focus">'+triageHtml()+nextHtml()+'</div>'
+   +'<details class="card statsbox"'+(statsOpen()?' open':'')+'><summary>נתונים ומגמות</summary>'+viewStats()+'</details>'
    +'<div class="stats3"><button type="button" class="stat dark" data-go="flow:active"><small>בתהליך</small><b>'+act+'</b>'+mini(dayCounts('addedAt',7))+'</button><button type="button" class="stat" data-go="flow:applied"><small>הוגשו ב-7 ימים</small><b>'+week+'</b>'+mini(dayCounts('appliedAt',7))+'</button><button type="button" class="stat" data-go="flow:interview"><small>בשלב ראיון</small><b>'+iv+'</b>'+mini(['screen','interview','offer'].map(s=>jobs.filter(j=>j.stage===s).length))+'</button></div>';
 }
 function rowHtml(j){
@@ -701,12 +712,14 @@ function render(){
 
 
 /* ---------- companies ---------- */
-const CITY={"אשקלון":[31.668,34.574,0],"שדרות":[31.525,34.596,15],"אשדוד":[31.802,34.65,20],"נתיבות":[31.422,34.589,30],"קריית גת":[31.61,34.766,30],"קרית גת":[31.61,34.766,25],"יבנה":[31.878,34.739,35],"גדרה":[31.814,34.777,38],"אופקים":[31.314,34.62,40],"רחובות":[31.894,34.809,45],"נס ציונה":[31.93,34.799,48],"באר שבע":[31.252,34.791,55],"ראשון לציון":[31.971,34.789,55],"רמלה":[31.928,34.866,58],"בת ים":[32.017,34.75,58],"חולון":[32.015,34.779,60],"לוד":[31.951,34.895,60],"תל אביב":[32.08,34.781,65],"בית שמש":[31.745,34.988,65],"אור יהודה":[32.031,34.855,68],"גבעתיים":[32.072,34.812,68],"מודיעין":[31.893,35.01,70],"יהוד":[32.033,34.889,70],"שוהם":[31.999,34.948,70],"רמת גן":[32.082,34.814,70],"בני ברק":[32.084,34.833,72],"גבעת שמואל":[32.076,34.849,72],"ירושלים":[31.768,35.214,75],"פתח תקווה":[32.087,34.887,75],"רמת השרון":[32.146,34.84,78],"הרצליה":[32.166,34.843,80],"ראש העין":[32.096,34.956,85],"רעננה":[32.185,34.871,85],"דימונה":[31.068,35.033,85],"הוד השרון":[32.15,34.889,88],"כפר סבא":[32.175,34.907,90],"אריאל":[32.105,35.187,95],"נתניה":[32.321,34.853,95],"חדרה":[32.434,34.919,115],"אור עקיבא":[32.507,34.917,118],"קיסריה":[32.5,34.895,120],"מצפה רמון":[30.61,34.801,140],"יגור":[32.743,35.077,148],"חיפה":[32.794,34.99,150],"עפולה":[32.608,35.289,150],"קריות":[32.83,35.077,155],"טירת כרמל":[32.766,34.972,155],"יקנעם":[32.661,35.11,160],"בית שאן":[32.497,35.5,160],"מגדל העמק":[32.675,35.245,165],"עכו":[32.928,35.075,170],"כרמיאל":[32.916,35.296,185],"נהריה":[33.006,35.095,185],"צפת":[32.962,35.496,190],"קיבוץ סאסא":[33.025,35.397,200],"אילת":[29.558,34.95,250],"תל השומר":[32.045,34.843,68],"עומר":[31.263,34.848,70],"להבים":[31.371,34.816,50],"עמק חפר":[32.38,34.9,110],"כפר יונה":[32.317,34.937,105],"ניר צבי":[31.947,34.853,55],"באר יעקב":[31.942,34.834,50],"קריית אונו":[32.063,34.86,65],"קרית אונו":[32.063,34.86,65],"כפר נטר":[32.287,34.869,95],"נוף הגליל":[32.71,35.317,175],"עין חרוד":[32.567,35.388,165],"משגב":[32.879,35.233,195],"קריית שמונה":[33.208,35.571,255],"ראש פינה":[32.969,35.542,220],"סביון":[32.05,34.873,65],"גן יבנה":[31.787,34.706,25],"קריית מלאכי":[31.731,34.746,25],"באר טוביה":[31.733,34.723,20],"זיקים":[31.607,34.517,10],"יד מרדכי":[31.588,34.556,10],"ניר עם":[31.519,34.582,20],"קריית שדה התעופה":[31.994,34.896,60],"איירפורט סיטי":[31.994,34.896,60],"אזור":[32.024,34.806,60],"גבעת ברנר":[31.866,34.803,40],"מזכרת בתיה":[31.853,34.84,40],"קריית עקרון":[31.858,34.82,40],"כפר חב\"ד":[31.989,34.851,60],"אלעד":[32.052,34.952,70],"מבשרת ציון":[31.802,35.15,75],"ערד":[31.259,35.212,100],"נצרת":[32.7,35.297,175],"מעלות תרשיחא":[33.016,35.272,215],"רמת ישי":[32.705,35.165,165],"עתלית":[32.689,34.94,155],"זכרון יעקב":[32.571,34.953,140],"פרדס חנה":[32.473,34.973,125],"בנימינה":[32.52,34.946,130],"כפר קאסם":[32.114,34.976,80],"קדימה":[32.276,34.91,95],"אבן יהודה":[32.27,34.888,95],"תל מונד":[32.256,34.917,95],"רמת החייל":[32.11,34.84,70],"קריית אריה":[32.106,34.862,75],"קצרין":[32.992,35.692,235],"טבריה":[32.795,35.531,200],"רמת בקע":[31.17,34.79,75],"נגב":[31.25,34.79,65],"שפלה":[31.9,34.8,45],"מרכז":[32.08,34.8,65],"גוש דן":[32.08,34.8,65],"גני תקווה":[32.062,34.871,70],"מגשימים":[32.055,34.919,70]};
-const CALIAS={"תא":"תל אביב","ת\"א":"תל אביב","תל אביב יפו":"תל אביב","tel aviv":"תל אביב","tel-aviv":"תל אביב","tel aviv-yafo":"תל אביב","tlv":"תל אביב","פ\"ת":"פתח תקווה","פתח תקוה":"פתח תקווה","petah tikva":"פתח תקווה","petah tiqwa":"פתח תקווה","petach tikva":"פתח תקווה","ראשלצ":"ראשון לציון","ראשל\"צ":"ראשון לציון","rishon lezion":"ראשון לציון","rishon le zion":"ראשון לציון","ב\"ש":"באר שבע","beer sheva":"באר שבע","beersheba":"באר שבע","be'er sheva":"באר שבע","ramat gan":"רמת גן","herzliya":"הרצליה","herzlia":"הרצליה","haifa":"חיפה","jerusalem":"ירושלים","rehovot":"רחובות","ness ziona":"נס ציונה","nes ziona":"נס ציונה","holon":"חולון","yavne":"יבנה","ashdod":"אשדוד","ashkelon":"אשקלון","kiryat gat":"קריית גת","qiryat gat":"קריית גת","קרית גת":"קריית גת","modiin":"מודיעין","modi'in":"מודיעין","airport city":"איירפורט סיטי","rosh haayin":"ראש העין","rosh ha'ayin":"ראש העין","kfar saba":"כפר סבא","raanana":"רעננה","ra'anana":"רעננה","netanya":"נתניה","yokneam":"יקנעם","caesarea":"קיסריה","hod hasharon":"הוד השרון","or yehuda":"אור יהודה","lod":"לוד","ramla":"רמלה","yehud":"יהוד","bnei brak":"בני ברק","givatayim":"גבעתיים","bat yam":"בת ים","kiryat ono":"קריית אונו","קרית אונו":"קריית אונו","shoham":"שוהם","gedera":"גדרה","sderot":"שדרות","netivot":"נתיבות","ofakim":"אופקים","dimona":"דימונה","arad":"ערד","eilat":"אילת","karmiel":"כרמיאל","migdal haemek":"מגדל העמק","nazareth":"נצרת","afula":"עפולה","akko":"עכו","acre":"עכו","nahariya":"נהריה","kiryat shmona":"קריית שמונה","beit shemesh":"בית שמש","ramat hasharon":"רמת השרון","kfar yona":"כפר יונה","be'er yaakov":"באר יעקב","beer yaakov":"באר יעקב","givat shmuel":"גבעת שמואל","kiryat malachi":"קריית מלאכי","קרית מלאכי":"קריית מלאכי","gan yavne":"גן יבנה","omer":"עומר","lehavim":"להבים","tel hashomer":"תל השומר","ramat hachayal":"רמת החייל","מעלות":"מעלות תרשיחא","קרית שמונה":"קריית שמונה","קרית אריה":"קריית אריה"};
+const CITY={"אשקלון":[31.668,34.574,0],"שדרות":[31.525,34.596,15],"אשדוד":[31.802,34.65,20],"נתיבות":[31.422,34.589,30],"קריית גת":[31.61,34.766,30],"קרית גת":[31.61,34.766,25],"יבנה":[31.878,34.739,35],"גדרה":[31.814,34.777,38],"אופקים":[31.314,34.62,40],"רחובות":[31.894,34.809,45],"נס ציונה":[31.93,34.799,48],"באר שבע":[31.252,34.791,55],"ראשון לציון":[31.971,34.789,55],"רמלה":[31.928,34.866,58],"בת ים":[32.017,34.75,58],"חולון":[32.015,34.779,60],"לוד":[31.951,34.895,60],"תל אביב":[32.08,34.781,65],"בית שמש":[31.745,34.988,65],"אור יהודה":[32.031,34.855,68],"גבעתיים":[32.072,34.812,68],"מודיעין":[31.893,35.01,70],"יהוד":[32.033,34.889,70],"שוהם":[31.999,34.948,70],"רמת גן":[32.082,34.814,70],"בני ברק":[32.084,34.833,72],"גבעת שמואל":[32.076,34.849,72],"ירושלים":[31.768,35.214,75],"פתח תקווה":[32.087,34.887,75],"רמת השרון":[32.146,34.84,78],"הרצליה":[32.166,34.843,80],"ראש העין":[32.096,34.956,85],"רעננה":[32.185,34.871,85],"דימונה":[31.068,35.033,85],"הוד השרון":[32.15,34.889,88],"כפר סבא":[32.175,34.907,90],"אריאל":[32.105,35.187,95],"נתניה":[32.321,34.853,95],"חדרה":[32.434,34.919,115],"אור עקיבא":[32.507,34.917,118],"קיסריה":[32.5,34.895,120],"מצפה רמון":[30.61,34.801,140],"יגור":[32.743,35.077,148],"חיפה":[32.794,34.99,150],"עפולה":[32.608,35.289,150],"קריות":[32.83,35.077,155],"טירת כרמל":[32.766,34.972,155],"יקנעם":[32.661,35.11,160],"בית שאן":[32.497,35.5,160],"מגדל העמק":[32.675,35.245,165],"עכו":[32.928,35.075,170],"כרמיאל":[32.916,35.296,185],"נהריה":[33.006,35.095,185],"צפת":[32.962,35.496,190],"קיבוץ סאסא":[33.025,35.397,200],"אילת":[29.558,34.95,250],"תל השומר":[32.045,34.843,68],"עומר":[31.263,34.848,70],"להבים":[31.371,34.816,50],"עמק חפר":[32.38,34.9,110],"כפר יונה":[32.317,34.937,105],"ניר צבי":[31.947,34.853,55],"באר יעקב":[31.942,34.834,50],"קריית אונו":[32.063,34.86,65],"קרית אונו":[32.063,34.86,65],"כפר נטר":[32.287,34.869,95],"נוף הגליל":[32.71,35.317,175],"עין חרוד":[32.567,35.388,165],"משגב":[32.879,35.233,195],"קריית שמונה":[33.208,35.571,255],"ראש פינה":[32.969,35.542,220],"סביון":[32.05,34.873,65],"גן יבנה":[31.787,34.706,25],"קריית מלאכי":[31.731,34.746,25],"באר טוביה":[31.733,34.723,20],"זיקים":[31.607,34.517,10],"יד מרדכי":[31.588,34.556,10],"ניר עם":[31.519,34.582,20],"קריית שדה התעופה":[31.994,34.896,60],"איירפורט סיטי":[31.994,34.896,60],"גבעת ברנר":[31.866,34.803,40],"מזכרת בתיה":[31.853,34.84,40],"קריית עקרון":[31.858,34.82,40],"כפר חב\"ד":[31.989,34.851,60],"אלעד":[32.052,34.952,70],"מבשרת ציון":[31.802,35.15,75],"ערד":[31.259,35.212,100],"נצרת":[32.7,35.297,175],"מעלות תרשיחא":[33.016,35.272,215],"רמת ישי":[32.705,35.165,165],"עתלית":[32.689,34.94,155],"זכרון יעקב":[32.571,34.953,140],"פרדס חנה":[32.473,34.973,125],"בנימינה":[32.52,34.946,130],"כפר קאסם":[32.114,34.976,80],"קדימה":[32.276,34.91,95],"אבן יהודה":[32.27,34.888,95],"תל מונד":[32.256,34.917,95],"רמת החייל":[32.11,34.84,70],"קריית אריה":[32.106,34.862,75],"קצרין":[32.992,35.692,235],"טבריה":[32.795,35.531,200],"רמת בקע":[31.17,34.79,75],"גני תקווה":[32.062,34.871,70],"מגשימים":[32.055,34.919,70]};
+const CALIAS={"הולון":"חולון","תא":"תל אביב","ת\"א":"תל אביב","תל אביב יפו":"תל אביב","tel aviv":"תל אביב","tel-aviv":"תל אביב","tel aviv-yafo":"תל אביב","tlv":"תל אביב","פ\"ת":"פתח תקווה","פתח תקוה":"פתח תקווה","petah tikva":"פתח תקווה","petah tiqwa":"פתח תקווה","petach tikva":"פתח תקווה","ראשלצ":"ראשון לציון","ראשל\"צ":"ראשון לציון","rishon lezion":"ראשון לציון","rishon le zion":"ראשון לציון","ב\"ש":"באר שבע","beer sheva":"באר שבע","beersheba":"באר שבע","be'er sheva":"באר שבע","ramat gan":"רמת גן","herzliya":"הרצליה","herzlia":"הרצליה","haifa":"חיפה","jerusalem":"ירושלים","rehovot":"רחובות","ness ziona":"נס ציונה","nes ziona":"נס ציונה","holon":"חולון","yavne":"יבנה","ashdod":"אשדוד","ashkelon":"אשקלון","kiryat gat":"קריית גת","qiryat gat":"קריית גת","קרית גת":"קריית גת","modiin":"מודיעין","modi'in":"מודיעין","airport city":"איירפורט סיטי","rosh haayin":"ראש העין","rosh ha'ayin":"ראש העין","kfar saba":"כפר סבא","raanana":"רעננה","ra'anana":"רעננה","netanya":"נתניה","yokneam":"יקנעם","caesarea":"קיסריה","hod hasharon":"הוד השרון","or yehuda":"אור יהודה","lod":"לוד","ramla":"רמלה","yehud":"יהוד","bnei brak":"בני ברק","givatayim":"גבעתיים","bat yam":"בת ים","kiryat ono":"קריית אונו","קרית אונו":"קריית אונו","shoham":"שוהם","gedera":"גדרה","sderot":"שדרות","netivot":"נתיבות","ofakim":"אופקים","dimona":"דימונה","arad":"ערד","eilat":"אילת","karmiel":"כרמיאל","migdal haemek":"מגדל העמק","nazareth":"נצרת","afula":"עפולה","akko":"עכו","acre":"עכו","nahariya":"נהריה","kiryat shmona":"קריית שמונה","beit shemesh":"בית שמש","ramat hasharon":"רמת השרון","kfar yona":"כפר יונה","be'er yaakov":"באר יעקב","beer yaakov":"באר יעקב","givat shmuel":"גבעת שמואל","kiryat malachi":"קריית מלאכי","קרית מלאכי":"קריית מלאכי","gan yavne":"גן יבנה","omer":"עומר","lehavim":"להבים","tel hashomer":"תל השומר","ramat hachayal":"רמת החייל","מעלות":"מעלות תרשיחא","קרית שמונה":"קריית שמונה","קרית אריה":"קריית אריה"};
 const CNAMES=Object.keys(CITY).sort((a,b)=>b.length-a.length);
 const CAL=Object.keys(CALIAS).sort((a,b)=>b.length-a.length);
 function cityOf(loc){let k=String(loc||'').toLowerCase().replace(/[׳']/g,"'").replace(/[״]/g,'"').replace(/\s+/g,' ').trim();if(!k)return null;
-  for(const n of CNAMES)if(k.indexOf(n)>=0)return n;
+  const HB=/[\u0590-\u05ff]/;
+  for(const n of CNAMES){let i=k.indexOf(n);while(i>=0){const b=k[i-1],a=k[i+n.length];
+      if((!b||!HB.test(b)||'ובלמה'.includes(b)&&(i<2||!HB.test(k[i-2])))&&(!a||!HB.test(a)))return n;i=k.indexOf(n,i+1)}}
   for(const a of CAL){const re=new RegExp('(^|[^a-z])'+a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^a-z]|$)');if(re.test(k))return CALIAS[a]}
   return null}
 const CDIST=Object.fromEntries(Object.entries(CITY).map(([k,v])=>[k,v[2]]));
@@ -864,10 +877,11 @@ function initMap(){
   loadDeck().then(()=>{
     const msg=$('mapmsg');if(msg)msg.remove();
     let pts=[];
-    const mkPts=()=>{const out=[];
-    cos.forEach(c=>{const p=mcoord(c);if(!p)return;const s=rscore(c);
-      let h=0;for(let i=0;i<(c.id||'').length;i++)h=(h*31+c.id.charCodeAt(i))>>>0;
-      const ang=(h%360)*Math.PI/180,r=(3+(h>>9)%9)/111.32;
+    const mkPts=()=>{const out=[],seen={};
+    cos.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).forEach(c=>{const p=mcoord(c);if(!p)return;const s=rscore(c);
+      // companies in the same city share its centre; extra ones spiral out by a few hundred metres
+      const key=p[0]+','+p[1], n=seen[key]=(seen[key]||0)+1, k=n-1;
+      const ang=k*2.39996, r=k?0.45*Math.sqrt(k)/111.32:0;
       out.push({id:c.id,name:c.name,co:c,s:s,
         pos:[p[1]+r*Math.sin(ang)/Math.cos(p[0]*Math.PI/180),p[0]+r*Math.cos(ang)],
         h:3+Math.min(s.js.length,6)*3, col:rgbOf(MBANDCOL[s.band]||'--grey')})});return out};
@@ -1046,6 +1060,7 @@ function rkRow(r,col){
   ].filter(Boolean).join('');
   return '<details class="rkrow" style="border-inline-start:4px solid '+col+'"><summary>'
    +'<span class="rknm">'+esc(c.name)+'</span>'
+   +'<select class="cstat rkst sb-'+s.band+'" data-co="'+esc(c.id)+'" aria-label="סטטוס">'+CSTAT.map(v=>'<option'+(v===(c.status||'חדש')?' selected':'')+'>'+v+'</option>').join('')+'</select>'
    +(c.location?'<span class="pill '+kmcls+'">'+esc(c.location)+(s.d==null?'':' · '+s.d+' ק״מ')+'</span>':'')
    +(c.domain?'<span class="rkdom">'+esc(c.domain)+'</span>':'')
    +(js.length?'<span class="pill good">'+js.length+'</span>':'')
@@ -1176,7 +1191,8 @@ function setStage(id,to,msg){
   queue(()=>db.doc('jobs/'+id).set(o));toast(msg);
 }
 
-function setTab(k){if(!TABS.includes(k))k='focus';if(location.hash.slice(1)===k){tab=k;render();return}location.hash=k}
+if(location.hash&&location.hash!=='#focus'){try{history.replaceState(null,'',location.pathname+location.search+'#focus')}catch(e){}}
+function setTab(k){if(k==='co')k='rank';if(k==='stats')k='focus';if(!TABS.includes(k))k='focus';if(location.hash.slice(1)===k){tab=k;render();return}location.hash=k}
 document.addEventListener('click',e=>{
   const gb=e.target.closest('[data-grp]');if(gb){const g=GROUPS.find(x=>x.g===gb.dataset.grp);if(g)setTab(lastIn[g.g]||g.tabs[0]);return}
   const tb=e.target.closest('[data-tab]');if(tb){setTab(tb.dataset.tab);return}
