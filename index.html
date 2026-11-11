@@ -725,6 +725,11 @@ const MORG=[31.668,34.574];
 const mcoord=c=>{const k=(c.location||'').trim();if(!k)return null;if(MCOORD[k])return MCOORD[k];
   for(const x in MCOORD)if(k.indexOf(x)>=0)return MCOORD[x];return null};
 const MBANDCOL={live:'--accent',go:'--good',chk:'--warn',watch:'--grey',no:'--bad',unk:'--c3'};
+let _ml=null,_ov=null,_mapApi=null;
+function loadML(){if(window.maplibregl)return Promise.resolve();
+  if(!document.getElementById('mlcss')){const l=document.createElement('link');l.id='mlcss';l.rel='stylesheet';l.href='vendor/maplibre-gl.css';document.head.appendChild(l)}
+  return new Promise((res,rej)=>{const t=document.createElement('script');t.src='vendor/maplibre-gl.js';
+    t.onload=()=>window.maplibregl?res():rej(new Error('no maplibre'));t.onerror=()=>rej(new Error('maplibre blocked'));document.head.appendChild(t)})}
 let _deck=null,_deckP=null,_vs=null,_msel=null,_mfocus=null;
 function focusOnMap(id){const c=cos.find(x=>x.id===id);
   if(c&&!mcoord(c)){toast('אין לחברה הזאת עיר, אז אין לה מקום במפה');return}
@@ -771,12 +776,12 @@ function initMap(){
     const land=[],lake=[];
     (GEO.israel||[]).concat(GEO.palestine||[]).forEach(poly=>land.push({polygon:poly}));
     (GEO.lakes||[]).forEach(poly=>lake.push({polygon:poly}));
-    const L=()=>[
+    const L=(base)=>(base?[]:[
       new deck.PolygonLayer({id:'land',data:land,getPolygon:d=>d.polygon,filled:true,stroked:true,
         getFillColor:rgbOf('--muted').concat(40),getLineColor:rgbOf('--muted').concat(150),
         lineWidthMinPixels:1,extruded:false,pickable:false}),
       new deck.PolygonLayer({id:'lake',data:lake,getPolygon:d=>d.polygon,filled:true,stroked:false,
-        getFillColor:rgbOf('--c1').concat(110),extruded:false,pickable:false}),
+        getFillColor:rgbOf('--c1').concat(110),extruded:false,pickable:false})]).concat([
       new deck.PolygonLayer({id:'rings',data:[30,60,90].map(k=>({polygon:ringPoly(k),km:k})),
         getPolygon:d=>d.polygon,filled:false,stroked:true,
         getLineColor:rgbOf('--muted').concat(90),lineWidthMinPixels:1,getLineWidth:1,extruded:false}),
@@ -785,28 +790,55 @@ function initMap(){
       new deck.ColumnLayer({id:'co',data:pts,diskResolution:14,radius:2200,extruded:true,pickable:true,
         elevationScale:4200,getPosition:d=>d.pos,getElevation:d=>d.h,
         getFillColor:d=>d.col.concat(_msel&&_msel!==d.id?110:235),
-        updateTriggers:{getFillColor:[_msel]}})];
+        updateTriggers:{getFillColor:[_msel]}})]);
     if(!_vs)_vs={longitude:34.95,latitude:31.85,zoom:7.15,pitch:50,bearing:0,minZoom:5.5,maxZoom:11};
     if(_mfocus){const f=pts.find(x=>x.id===_mfocus);
       if(f){_vs=Object.assign({},_vs,{longitude:f.pos[0],latitude:f.pos[1]-0.25,zoom:9.2,pitch:52});_msel=f.id}
       _mfocus=null}
     if(_deck){try{_deck.finalize()}catch(e){}_deck=null}
-    _deck=new deck.Deck({parent:host,viewState:_vs,controller:true,layers:L(),
-      style:{position:'absolute',inset:'0'},
-      onViewStateChange:({viewState})=>{_vs=viewState;_deck.setProps({viewState:_vs})},
-      getTooltip:({object})=>object?{html:'<b>'+esc(object.name)+'</b><br>'+esc(object.co.location||'')
+    if(_ml){try{_ml.remove()}catch(e){}_ml=null;_ov=null}
+    const tip=({object})=>object?{html:'<b>'+esc(object.name)+'</b><br>'+esc(object.co.location||'')
         +(object.s.js.length?' · '+object.s.js.length+' משרות':''),
         style:{background:'var(--card2)',color:'var(--fg)',border:'1px solid var(--line)',
-               borderRadius:'8px',fontSize:'12px',padding:'6px 9px'}}:null,
-      onClick:({object})=>{_msel=object?object.id:null;mapCard(object);_deck.setProps({layers:L()})}});
+               borderRadius:'8px',fontSize:'12px',padding:'6px 9px'}}:null;
+    const HOME={longitude:34.95,latitude:31.85,zoom:7.15,pitch:50,bearing:0};
+    // flat fallback: our own borders, no network needed
+    const flat=()=>{if(!host.isConnected)return;
+      _deck=new deck.Deck({parent:host,viewState:_vs,controller:true,layers:L(false),
+        style:{position:'absolute',inset:'0'},
+        onViewStateChange:({viewState})=>{_vs=viewState;_deck.setProps({viewState:_vs})},
+        getTooltip:tip,
+        onClick:({object})=>{_msel=object?object.id:null;mapCard(object);_deck.setProps({layers:L(false)})}});
+      _mapApi={resize:()=>{try{_deck.redraw(true)}catch(e){}},
+        home:()=>{_vs=Object.assign({},HOME,{minZoom:5.5,maxZoom:11});_msel=null;mapCard(null);_deck.setProps({viewState:_vs,layers:L(false)})}}};
+    // real street map from OpenFreeMap, with our columns drawn on top
+    const real=()=>loadML().then(()=>new Promise((res,rej)=>{
+      if(!host.isConnected)return rej(new Error('gone'));
+      const dark=curTheme()==='dark';
+      const styles=dark?['dark','positron']:['positron'];
+      let i=0,done=false;
+      const m=new maplibregl.Map({container:host,style:'https://tiles.openfreemap.org/styles/'+styles[0],
+        center:[_vs.longitude,_vs.latitude],zoom:_vs.zoom,pitch:_vs.pitch,bearing:_vs.bearing,
+        maxPitch:70,attributionControl:{compact:true}});
+      const to=setTimeout(()=>{if(!done){done=true;try{m.remove()}catch(e){}rej(new Error('timeout'))}},9000);
+      m.on('error',()=>{if(done)return;i++;if(i<styles.length)m.setStyle('https://tiles.openfreemap.org/styles/'+styles[i])});
+      m.on('load',()=>{if(done)return;done=true;clearTimeout(to);
+        const ov=new deck.MapboxOverlay({interleaved:false,layers:L(true),getTooltip:tip,
+          onClick:({object})=>{_msel=object?object.id:null;mapCard(object);ov.setProps({layers:L(true)})}});
+        m.addControl(ov);
+        m.on('moveend',()=>{const c=m.getCenter();_vs=Object.assign({},_vs,{longitude:c.lng,latitude:c.lat,zoom:m.getZoom(),pitch:m.getPitch(),bearing:m.getBearing()})});
+        _ml=m;_ov=ov;
+        _mapApi={resize:()=>{try{m.resize()}catch(e){}},
+          home:()=>{_msel=null;mapCard(null);ov.setProps({layers:L(true)});
+            m.flyTo({center:[HOME.longitude,HOME.latitude],zoom:HOME.zoom,pitch:HOME.pitch,bearing:0})}};
+        res()})}));
+    real().catch(()=>{if(_ml){try{_ml.remove()}catch(e){}_ml=null}host.innerHTML='';flat()});
     if(_msel){const f=pts.find(x=>x.id===_msel);if(f)mapCard(f)}
     const fb=$('mapfull');if(fb)fb.onclick=()=>{
       const card=$('mapcardwrap');if(!card)return;
       const on=card.classList.toggle('mapfull');document.body.classList.toggle('noscroll',on);
-      fb.textContent=on?'יציאה':'מסך מלא';setTimeout(()=>{try{_deck.redraw(true)}catch(e){}},80)};
-    const rbn=$('mapreset');if(rbn)rbn.onclick=()=>{
-      _vs={longitude:34.95,latitude:31.85,zoom:7.15,pitch:50,bearing:0,minZoom:5.5,maxZoom:11};
-      _msel=null;mapCard(null);_deck.setProps({viewState:_vs,layers:L()})};
+      fb.textContent=on?'יציאה':'מסך מלא';setTimeout(()=>{_mapApi&&_mapApi.resize()},80)};
+    const rbn=$('mapreset');if(rbn)rbn.onclick=()=>{_mapApi&&_mapApi.home()};
   }).catch(err=>{const m=$('mapmsg');if(m)m.innerHTML='<b>מנוע המפה לא נטען.</b><br>'
     +'<span class="sub2">'+esc((err&&err.message)||'')+' — שתי הספריות נחסמו. שאר הדאשבורד עובד כרגיל.</span>'});
 }
@@ -1048,7 +1080,7 @@ try{const sv=localStorage.getItem('jobs-theme2');if(sv==='light'||sv==='dark')do
 $('theme').onclick=()=>{const n=curTheme()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('jobs-theme2',n)}catch(e){}syncThemeBtn()};
 window.addEventListener('keydown',e=>{if(e.key!=='Escape')return;const h=$('mapcardwrap');
   if(h&&h.classList.contains('mapfull')){h.classList.remove('mapfull');document.body.classList.remove('noscroll');
-    const b=$('mapfull');if(b)b.textContent='מסך מלא';setTimeout(()=>{try{_deck.redraw(true)}catch(e2){}},80)}});
+    const b=$('mapfull');if(b)b.textContent='מסך מלא';setTimeout(()=>{_mapApi&&_mapApi.resize()},80)}});
 window.addEventListener('hashchange',()=>{const k=location.hash.slice(1)||'focus';if($('modal')&&!$('modal').hidden)closeModal();if(TABS.includes(k)&&k!==tab){tab=k;render()}});
 syncThemeBtn();
 {const k=location.hash.slice(1);if(TABS.includes(k))tab=k}
@@ -1057,7 +1089,7 @@ render();
   db=d;
   if(!db){loaded=true;render();return}
   try{db.collection('companies').onSnapshot(s=>{cos=s.docs.map(x=>{const o=Object.assign({id:x.id},x.data());
-    if(coPend[x.id])Object.assign(o,coPend[x.id]);return o});if(tab==='co'||tab==='rank'||tab==='map')render()},()=>{})}catch(e){}
+    if(coPend[x.id])Object.assign(o,coPend[x.id]);return o});if(tab==='co'||tab==='rank'||(tab==='map'&&!_ml))render()},()=>{})}catch(e){}
   db.collection('jobs').onSnapshot(s=>{jobs=s.docs.map(x=>Object.assign({id:x.id},x.data()));loaded=true;render()},()=>{loaded=true;db=null;render()});
   try{db.collection('meta').onSnapshot(s=>{const d=s.docs.find(x=>x.id==='radar');meta=d?d.data():{};renderScan()},()=>{})}catch(e){}
 }).catch(()=>{loaded=true;render()});
