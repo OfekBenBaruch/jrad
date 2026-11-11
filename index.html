@@ -822,7 +822,10 @@ function setMapStyle(v){try{localStorage.setItem('jr-mapstyle',v)}catch(e){}}
 function loadML(){if(window.maplibregl)return Promise.resolve();
   if(!document.getElementById('mlcss')){const l=document.createElement('link');l.id='mlcss';l.rel='stylesheet';l.href='vendor/maplibre-gl.css';document.head.appendChild(l)}
   return new Promise((res,rej)=>{const t=document.createElement('script');t.src='vendor/maplibre-gl.js';
-    t.onload=()=>window.maplibregl?res():rej(new Error('no maplibre'));t.onerror=()=>rej(new Error('maplibre blocked'));document.head.appendChild(t)})}
+    t.onload=()=>{if(!window.maplibregl)return rej(new Error('no maplibre'));
+      // Hebrew and Arabic labels are drawn right-to-left only with this plugin
+      try{if(maplibregl.getRTLTextPluginStatus()==='unavailable')maplibregl.setRTLTextPlugin(new URL('vendor/rtl-text.js',location.href).href,false)}catch(e){}
+      res()};t.onerror=()=>rej(new Error('maplibre blocked'));document.head.appendChild(t)})}
 let _deck=null,_deckP=null,_vs=null,_msel=null,_mfocus=null;
 function focusOnMap(id){const c=cos.find(x=>x.id===id);
   if(c&&!mcoord(c)){toast('אין לחברה הזאת עיר, אז אין לה מקום במפה');return}
